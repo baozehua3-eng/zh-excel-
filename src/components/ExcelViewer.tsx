@@ -93,8 +93,30 @@ export function ExcelViewer({
   };
 
   // 过滤要显示的行和列
-  const visibleRows = Array.from({ length: sheet.rowCount }, (_, i) => i)
-    .filter(row => !hideIdenticalRows.has(row));
+  // 处理插入的行（row 为小数的行）
+  const allRows: number[] = [];
+  const rowIndexMap = new Map<number, number>(); // 映射 row 值到 data 数组索引
+  
+  // 遍历所有数据行，建立映射
+  sheet.data.forEach((rowData, dataIndex) => {
+    if (rowData.length > 0) {
+      const rowValue = rowData[0].row;
+      if (!allRows.includes(rowValue)) {
+        allRows.push(rowValue);
+        rowIndexMap.set(rowValue, dataIndex);
+      }
+    }
+  });
+  
+  // 排序所有行（包括插入的行）
+  allRows.sort((a, b) => a - b);
+  
+  const visibleRows = allRows.filter(row => {
+    // 对于插入的行（小数），总是显示
+    if (row % 1 !== 0) return true;
+    // 对于普通行，检查是否在隐藏列表中
+    return !hideIdenticalRows.has(row);
+  });
   const visibleCols = Array.from({ length: sheet.colCount }, (_, i) => i)
     .filter(col => !hideIdenticalCols.has(col));
 
@@ -115,48 +137,55 @@ export function ExcelViewer({
           </thead>
           <tbody>
             {visibleRows.map((row) => {
-              const hasConflict = conflictRows.has(row);
-              const rowDiffs = diffs.filter(d => d.sheetName === sheetName && d.row === row);
+              const isInsertedRow = row % 1 !== 0; // 插入的行使用小数索引
+              const originalRow = Math.floor(row);
+              const dataIndex = rowIndexMap.get(row) ?? -1;
+              
+              const hasConflict = !isInsertedRow && conflictRows.has(originalRow);
+              const rowDiffs = !isInsertedRow ? diffs.filter(d => d.sheetName === sheetName && d.row === originalRow) : [];
               const isInserted = rowDiffs.some(d => d.resolution?.strategy === 'insertRow');
               
               return (
-                <tr key={row}>
+                <tr key={`${row}-${dataIndex}`} className={isInsertedRow ? 'inserted-row' : ''}>
                   <td className="row-header">
                     <div className="row-header-content">
-                      {hasConflict && !isInserted && (
+                      {!isInsertedRow && hasConflict && !isInserted && fileSource && (
                         <button
                           className="insert-row-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onInsertRow?.(row, fileSource);
+                            onInsertRow?.(originalRow, fileSource);
                           }}
                           title="点击将此行作为新行插入到原行下方（保留两行内容）"
                         >
                           +
                         </button>
                       )}
-                      {isInserted && (
+                      {isInsertedRow && (
+                        <span className="inserted-indicator" title="这是插入的行">↳</span>
+                      )}
+                      {!isInsertedRow && isInserted && (
                         <span className="inserted-indicator" title="此行将被插入">↳</span>
                       )}
-                      <span>{row + 1}</span>
+                      <span>{isInsertedRow ? `${originalRow + 1}'` : row + 1}</span>
                     </div>
                   </td>
                   {visibleCols.map((col) => {
-                  const cell = sheet.data[row]?.[col];
+                  const cell = dataIndex >= 0 ? sheet.data[dataIndex]?.[col] : null;
                   const value = cell?.value ?? '';
-                  const diff = diffMap.get(`${row}-${col}`);
+                  const diff = !isInsertedRow ? diffMap.get(`${originalRow}-${col}`) : undefined;
                   
                   return (
                     <td
                       key={col}
-                      className={getCellClass(row, col)}
-                      onClick={() => onCellClick?.(row, col, fileSource)}
-                      title={diff ? `差异: ${diff.oldValue} → ${diff.newValue} (点击采用当前文件的值)` : ''}
+                      className={isInsertedRow ? 'cell cell-inserted' : getCellClass(originalRow, col)}
+                      onClick={() => !isInsertedRow && onCellClick?.(originalRow, col, fileSource)}
+                      title={diff ? `差异: ${diff.oldValue} → ${diff.newValue} (点击采用当前文件的值)` : isInsertedRow ? '插入的行' : ''}
                     >
                       {value}
                     </td>
                   );
-                  })}
+                })}
                 </tr>
               );
             })}

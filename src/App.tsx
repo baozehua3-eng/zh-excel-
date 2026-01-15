@@ -5,7 +5,13 @@ import { useExcelComparison } from './hooks/useExcelComparison';
 import { DefaultResolutionStrategy } from './utils/types';
 import './App.css';
 
+const APP_VERSION = '1.0.3';
+
 function App() {
+  // 设置网页标题
+  useEffect(() => {
+    document.title = `Excel文件对比工具 (v${APP_VERSION})`;
+  }, []);
   const {
     fileA,
     fileB,
