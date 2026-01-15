@@ -62,7 +62,17 @@ export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef
     if (diff.type === 'added') classes.push('cell-added');
     if (diff.type === 'deleted') classes.push('cell-deleted');
     if (diff.type === 'modified') classes.push('cell-modified');
-    if (diff.resolution) classes.push('cell-resolved');
+    
+    // 只有当解决方案选择的文件与当前查看的文件一致时，才显示对勾
+    if (diff.resolution && diff.resolution.strategy !== 'unresolved') {
+      const isResolvedForThisFile = 
+        (diff.resolution.strategy === 'fileA' && fileSource === 'fileA') ||
+        (diff.resolution.strategy === 'fileB' && fileSource === 'fileB');
+      
+      if (isResolvedForThisFile) {
+        classes.push('cell-resolved');
+      }
+    }
     
     return classes.join(' ');
   };
