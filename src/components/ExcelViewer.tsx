@@ -6,11 +6,12 @@ interface ExcelViewerProps {
   data: ExcelData | null;
   sheetName: string | null;
   diffs: DiffRecord[];
-  onCellClick?: (row: number, col: number) => void;
+  onCellClick?: (row: number, col: number, fileSource?: 'fileA' | 'fileB') => void;
   scrollSyncRef?: React.RefObject<HTMLDivElement>;
+  fileSource?: 'fileA' | 'fileB'; // 标识这是文件A还是文件B
 }
 
-export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef }: ExcelViewerProps) {
+export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef, fileSource }: ExcelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,8 +95,8 @@ export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef
                     <td
                       key={col}
                       className={getCellClass(row, col)}
-                      onClick={() => onCellClick?.(row, col)}
-                      title={diff ? `差异: ${diff.oldValue} → ${diff.newValue}` : ''}
+                      onClick={() => onCellClick?.(row, col, fileSource)}
+                      title={diff ? `差异: ${diff.oldValue} → ${diff.newValue} (点击采用当前文件的值)` : ''}
                     >
                       {value}
                     </td>

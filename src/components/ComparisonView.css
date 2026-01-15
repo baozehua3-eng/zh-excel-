@@ -72,3 +72,7 @@
 .excel-viewer-wrapper:last-child .viewer-label {
   background-color: #52c41a;
 }
+
+.side-by-side-container {
+  margin-bottom: 20px;
+}
