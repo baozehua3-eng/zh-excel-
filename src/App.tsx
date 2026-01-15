@@ -14,6 +14,7 @@ function App() {
     diffs,
     compare,
     resolveDiff,
+    insertRow,
     defaultStrategy,
     setDefaultStrategy,
     applyDefaultStrategy,
@@ -87,6 +88,7 @@ function App() {
             fileB={fileB}
             diffs={diffs}
             onResolve={resolveDiff}
+            onInsertRow={insertRow}
             defaultStrategy={defaultStrategy}
             onStrategyChange={setDefaultStrategy}
             onApplyDefault={applyDefaultStrategy}

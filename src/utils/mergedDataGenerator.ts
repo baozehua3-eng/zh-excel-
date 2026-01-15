@@ -24,8 +24,18 @@ export function generateMergedData(
     );
 
     const mergedData: CellData[][] = [];
+    
+    // 找出需要插入的行（标记为 insertRow 的行）
+    const rowsToInsert = new Set<number>();
+    const sheetDiffs = diffs.filter(d => d.sheetName === sheetA.name && d.row >= 0 && d.col >= 0);
+    sheetDiffs.forEach(diff => {
+      if (diff.resolution?.strategy === 'insertRow') {
+        rowsToInsert.add(diff.row);
+      }
+    });
 
     for (let row = 0; row < maxRow; row++) {
+      // 先添加原行
       const rowData: CellData[] = [];
       for (let col = 0; col < maxCol; col++) {
         // 查找该单元格的差异记录
@@ -45,6 +55,10 @@ export function generateMergedData(
           } else if (resolution.strategy === 'fileB') {
             cellValue = diff.newValue ?? '';
             cellType = typeof diff.newValue === 'number' ? 'number' : 'string';
+          } else if (resolution.strategy === 'insertRow') {
+            // 插入行：使用原行的值（文件A的值）
+            cellValue = diff.oldValue ?? '';
+            cellType = typeof diff.oldValue === 'number' ? 'number' : 'string';
           } else if (resolution.strategy === 'custom' && resolution.resolvedValue !== undefined) {
             cellValue = resolution.resolvedValue;
             cellType = typeof resolution.resolvedValue === 'number' ? 'number' : 'string';
@@ -82,12 +96,49 @@ export function generateMergedData(
         });
       }
       mergedData.push(rowData);
+
+      // 如果该行标记为插入，添加新行（使用文件B的值）
+      if (rowsToInsert.has(row)) {
+        const insertedRowData: CellData[] = [];
+        for (let col = 0; col < maxCol; col++) {
+          const diff = diffs.find(
+            d => d.sheetName === sheetA.name && d.row === row && d.col === col
+          );
+          
+          let cellValue: any = '';
+          let cellType: 'number' | 'string' | 'formula' | 'empty' = 'empty';
+          
+          if (diff && diff.resolution?.strategy === 'insertRow') {
+            // 插入行使用文件B的值
+            cellValue = diff.newValue ?? '';
+            cellType = typeof diff.newValue === 'number' ? 'number' : 'string';
+          } else {
+            // 没有差异的单元格，使用文件B的值
+            const cellB = sheetB?.data[row]?.[col];
+            if (cellB && cellB.value !== '' && cellB.value !== null && cellB.value !== undefined) {
+              cellValue = cellB.value;
+              cellType = cellB.type;
+            } else {
+              cellValue = '';
+              cellType = 'empty';
+            }
+          }
+          
+          insertedRowData.push({
+            row: row + 0.5, // 使用小数表示插入的行
+            col,
+            value: cellValue,
+            type: cellType
+          });
+        }
+        mergedData.push(insertedRowData);
+      }
     }
 
     return {
       name: sheetA.name,
       data: mergedData,
-      rowCount: maxRow,
+      rowCount: mergedData.length, // 更新行数（包含插入的行）
       colCount: maxCol
     };
   });

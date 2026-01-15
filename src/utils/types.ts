@@ -10,7 +10,7 @@ export interface CellData {
 export type DiffType = 'added' | 'deleted' | 'modified' | 'structure';
 
 // 解决方式
-export type ResolutionStrategy = 'fileA' | 'fileB' | 'custom' | 'unresolved';
+export type ResolutionStrategy = 'fileA' | 'fileB' | 'custom' | 'unresolved' | 'insertRow';
 
 // 差异记录
 export interface DiffRecord {

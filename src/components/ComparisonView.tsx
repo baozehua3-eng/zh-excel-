@@ -7,6 +7,7 @@ import { ExportButton } from './ExportButton';
 import { MergedPreview } from './MergedPreview';
 import { generateMergedData } from '../utils/mergedDataGenerator';
 import { analyzeIdenticalRowsAndCols } from '../utils/diffFilter';
+import { getRowsWithConflicts } from '../utils/rowConflictAnalyzer';
 import './ComparisonView.css';
 
 interface ComparisonViewProps {
@@ -14,6 +15,7 @@ interface ComparisonViewProps {
   fileB: ExcelData | null;
   diffs: DiffRecord[];
   onResolve: (diffId: string, strategy: ResolutionStrategy, customValue?: any) => void;
+  onInsertRow?: (row: number, sheetName: string, fileSource: 'fileA' | 'fileB') => void;
   defaultStrategy: 'fileA' | 'fileB' | 'newValue' | 'oldValue' | 'manual';
   onStrategyChange: (strategy: 'fileA' | 'fileB' | 'newValue' | 'oldValue' | 'manual') => void;
   onApplyDefault: () => void;
@@ -25,6 +27,7 @@ export function ComparisonView({
   fileB,
   diffs,
   onResolve,
+  onInsertRow,
   defaultStrategy,
   onStrategyChange,
   onApplyDefault,
@@ -58,6 +61,18 @@ export function ComparisonView({
     return analyzeIdenticalRowsAndCols(fileA, fileB, diffs, selectedSheet);
   }, [fileA, fileB, diffs, selectedSheet]);
 
+  // 分析冲突行
+  const conflictRows = useMemo(() => {
+    if (!fileA || !fileB || !selectedSheet) {
+      return new Set<number>();
+    }
+    const maxRow = Math.max(
+      fileA.sheets.find(s => s.name === selectedSheet)?.rowCount ?? 0,
+      fileB.sheets.find(s => s.name === selectedSheet)?.rowCount ?? 0
+    );
+    return getRowsWithConflicts(diffs, selectedSheet, maxRow);
+  }, [fileA, fileB, diffs, selectedSheet]);
+
   const handleCellClick = (row: number, col: number, fileSource?: 'fileA' | 'fileB') => {
     const diff = diffs.find(
       d => d.sheetName === selectedSheet && d.row === row && d.col === col
@@ -66,6 +81,12 @@ export function ComparisonView({
       // 点击差异单元格时，直接采用该文件的值（允许重复点击切换选择）
       const strategy: ResolutionStrategy = fileSource === 'fileA' ? 'fileA' : 'fileB';
       onResolve(diff.id, strategy);
+    }
+  };
+
+  const handleInsertRow = (row: number, fileSource?: 'fileA' | 'fileB') => {
+    if (selectedSheet && fileSource && onInsertRow) {
+      onInsertRow(row, selectedSheet, fileSource);
     }
   };
 
@@ -123,10 +144,12 @@ export function ComparisonView({
             sheetName={selectedSheet}
             diffs={diffs}
             onCellClick={handleCellClick}
+            onInsertRow={handleInsertRow}
             scrollSyncRef={scrollSyncRef}
             fileSource="fileA"
             hideIdenticalRows={hideIdenticalContent ? identicalRows : new Set()}
             hideIdenticalCols={hideIdenticalContent ? identicalCols : new Set()}
+            conflictRows={conflictRows}
           />
         </div>
         <div className="excel-viewer-wrapper">
@@ -136,10 +159,12 @@ export function ComparisonView({
             sheetName={selectedSheet}
             diffs={diffs}
             onCellClick={handleCellClick}
+            onInsertRow={handleInsertRow}
             scrollSyncRef={scrollSyncRef}
             fileSource="fileB"
             hideIdenticalRows={hideIdenticalContent ? identicalRows : new Set()}
             hideIdenticalCols={hideIdenticalContent ? identicalCols : new Set()}
+            conflictRows={conflictRows}
           />
         </div>
       </div>

@@ -7,21 +7,25 @@ interface ExcelViewerProps {
   sheetName: string | null;
   diffs: DiffRecord[];
   onCellClick?: (row: number, col: number, fileSource?: 'fileA' | 'fileB') => void;
+  onInsertRow?: (row: number, fileSource?: 'fileA' | 'fileB') => void;
   scrollSyncRef?: React.RefObject<HTMLDivElement>;
   fileSource?: 'fileA' | 'fileB'; // 标识这是文件A还是文件B
   hideIdenticalRows?: Set<number>; // 要隐藏的相同行
   hideIdenticalCols?: Set<number>; // 要隐藏的相同列
+  conflictRows?: Set<number>; // 有冲突的行
 }
 
 export function ExcelViewer({ 
   data, 
   sheetName, 
   diffs, 
-  onCellClick, 
+  onCellClick,
+  onInsertRow,
   scrollSyncRef, 
   fileSource,
   hideIdenticalRows = new Set(),
-  hideIdenticalCols = new Set()
+  hideIdenticalCols = new Set(),
+  conflictRows = new Set()
 }: ExcelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -110,10 +114,34 @@ export function ExcelViewer({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => (
-              <tr key={row}>
-                <td className="row-header">{row + 1}</td>
-                {visibleCols.map((col) => {
+            {visibleRows.map((row) => {
+              const hasConflict = conflictRows.has(row);
+              const rowDiffs = diffs.filter(d => d.sheetName === sheetName && d.row === row);
+              const isInserted = rowDiffs.some(d => d.resolution?.strategy === 'insertRow');
+              
+              return (
+                <tr key={row}>
+                  <td className="row-header">
+                    <div className="row-header-content">
+                      {hasConflict && !isInserted && (
+                        <button
+                          className="insert-row-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInsertRow?.(row, fileSource);
+                          }}
+                          title="点击将此行作为新行插入到原行下方（保留两行内容）"
+                        >
+                          +
+                        </button>
+                      )}
+                      {isInserted && (
+                        <span className="inserted-indicator" title="此行将被插入">↳</span>
+                      )}
+                      <span>{row + 1}</span>
+                    </div>
+                  </td>
+                  {visibleCols.map((col) => {
                   const cell = sheet.data[row]?.[col];
                   const value = cell?.value ?? '';
                   const diff = diffMap.get(`${row}-${col}`);
@@ -128,9 +156,10 @@ export function ExcelViewer({
                       {value}
                     </td>
                   );
-                })}
-              </tr>
-            ))}
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

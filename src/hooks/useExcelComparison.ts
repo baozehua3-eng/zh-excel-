@@ -33,6 +33,22 @@ export function useExcelComparison() {
     }));
   }, []);
 
+  const insertRow = useCallback((row: number, sheetName: string, fileSource: 'fileA' | 'fileB') => {
+    // 将该行的所有差异标记为插入行
+    setDiffs(prev => prev.map(diff => {
+      if (diff.sheetName === sheetName && diff.row === row && diff.row >= 0 && diff.col >= 0) {
+        return {
+          ...diff,
+          resolution: {
+            strategy: 'insertRow',
+            resolvedValue: fileSource === 'fileA' ? diff.oldValue : diff.newValue
+          }
+        };
+      }
+      return diff;
+    }));
+  }, []);
+
   const applyDefaultStrategy = useCallback(() => {
     setDiffs(prev => prev.map(diff => {
       if (!diff.resolution || diff.resolution.strategy === 'unresolved') {
@@ -68,6 +84,7 @@ export function useExcelComparison() {
     diffs,
     compare,
     resolveDiff,
+    insertRow,
     defaultStrategy,
     setDefaultStrategy,
     applyDefaultStrategy,
