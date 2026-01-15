@@ -2,7 +2,6 @@ import React, { useState, useRef, useMemo } from 'react';
 import { ExcelData, DiffRecord, ResolutionStrategy } from '../utils/types';
 import { ExcelViewer } from './ExcelViewer';
 import { SheetSelector } from './SheetSelector';
-import { DiffList } from './DiffList';
 import { ResolutionSettings } from './ResolutionSettings';
 import { ExportButton } from './ExportButton';
 import { MergedPreview } from './MergedPreview';
@@ -31,7 +30,6 @@ export function ComparisonView({
   unresolvedCount
 }: ComparisonViewProps) {
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'side-by-side' | 'list'>('side-by-side');
   const scrollSyncRef = useRef<HTMLDivElement>(null);
 
   // 自动选择第一个工作表
@@ -42,8 +40,6 @@ export function ComparisonView({
       setSelectedSheet(fileB.sheets[0].name);
     }
   }, [fileA, fileB, selectedSheet]);
-
-  const [selectedDiffId, setSelectedDiffId] = useState<string | null>(null);
 
   // 生成合并后的预览数据
   const mergedData = useMemo(() => {
@@ -56,41 +52,19 @@ export function ComparisonView({
     const diff = diffs.find(
       d => d.sheetName === selectedSheet && d.row === row && d.col === col
     );
-    if (diff) {
-      // 如果点击的是差异单元格，且指定了文件来源，自动解决冲突
-      if (fileSource && (!diff.resolution || diff.resolution.strategy === 'unresolved')) {
-        const strategy: ResolutionStrategy = fileSource === 'fileA' ? 'fileA' : 'fileB';
-        onResolve(diff.id, strategy);
-      } else {
-        // 否则切换到差异清单视图
-        setSelectedDiffId(diff.id);
-        setViewMode('list');
-      }
+    if (diff && fileSource) {
+      // 点击差异单元格时，直接采用该文件的值（允许重复点击切换选择）
+      const strategy: ResolutionStrategy = fileSource === 'fileA' ? 'fileA' : 'fileB';
+      onResolve(diff.id, strategy);
     }
-  };
-
-  const handleDiffClick = (diff: DiffRecord) => {
-    setSelectedSheet(diff.sheetName);
-    setViewMode('side-by-side');
-    setSelectedDiffId(diff.id);
   };
 
   return (
     <div className="comparison-view">
       <div className="comparison-header">
-        <div className="view-mode-toggle">
-          <button
-            className={viewMode === 'side-by-side' ? 'active' : ''}
-            onClick={() => setViewMode('side-by-side')}
-          >
-            并排对比
-          </button>
-          <button
-            className={viewMode === 'list' ? 'active' : ''}
-            onClick={() => setViewMode('list')}
-          >
-            差异清单
-          </button>
+        <div className="header-info">
+          <h2>Excel文件对比</h2>
+          <p className="usage-hint">点击文件A或文件B中的差异单元格来选择采用哪个文件的值</p>
         </div>
         <ExportButton
           fileA={fileA}
@@ -108,53 +82,41 @@ export function ComparisonView({
         unresolvedCount={unresolvedCount}
       />
 
-      {viewMode === 'side-by-side' ? (
-        <>
-          <SheetSelector
-            fileA={fileA}
-            fileB={fileB}
-            selectedSheet={selectedSheet}
-            onSelectSheet={setSelectedSheet}
-          />
-          <div className="side-by-side-container">
-            <div className="excel-viewer-wrapper" ref={scrollSyncRef}>
-              <div className="viewer-label">文件A（点击差异单元格采用此文件的值）</div>
-              <ExcelViewer
-                data={fileA}
-                sheetName={selectedSheet}
-                diffs={diffs}
-                onCellClick={handleCellClick}
-                scrollSyncRef={scrollSyncRef}
-                fileSource="fileA"
-              />
-            </div>
-            <div className="excel-viewer-wrapper">
-              <div className="viewer-label">文件B（点击差异单元格采用此文件的值）</div>
-              <ExcelViewer
-                data={fileB}
-                sheetName={selectedSheet}
-                diffs={diffs}
-                onCellClick={handleCellClick}
-                scrollSyncRef={scrollSyncRef}
-                fileSource="fileB"
-              />
-            </div>
-          </div>
-          <MergedPreview
-            mergedData={mergedData}
+      <SheetSelector
+        fileA={fileA}
+        fileB={fileB}
+        selectedSheet={selectedSheet}
+        onSelectSheet={setSelectedSheet}
+      />
+      <div className="side-by-side-container">
+        <div className="excel-viewer-wrapper" ref={scrollSyncRef}>
+          <div className="viewer-label">文件A（点击差异单元格采用此文件的值）</div>
+          <ExcelViewer
+            data={fileA}
             sheetName={selectedSheet}
             diffs={diffs}
+            onCellClick={handleCellClick}
+            scrollSyncRef={scrollSyncRef}
+            fileSource="fileA"
           />
-        </>
-      ) : (
-        <DiffList
-          diffs={diffs}
-          onResolve={onResolve}
-          onCellClick={handleDiffClick}
-          selectedDiffId={selectedDiffId}
-          onSelectedDiffChange={setSelectedDiffId}
-        />
-      )}
+        </div>
+        <div className="excel-viewer-wrapper">
+          <div className="viewer-label">文件B（点击差异单元格采用此文件的值）</div>
+          <ExcelViewer
+            data={fileB}
+            sheetName={selectedSheet}
+            diffs={diffs}
+            onCellClick={handleCellClick}
+            scrollSyncRef={scrollSyncRef}
+            fileSource="fileB"
+          />
+        </div>
+      </div>
+      <MergedPreview
+        mergedData={mergedData}
+        sheetName={selectedSheet}
+        diffs={diffs}
+      />
     </div>
   );
 }
