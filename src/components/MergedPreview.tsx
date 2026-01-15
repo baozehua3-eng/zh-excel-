@@ -7,9 +7,11 @@ interface MergedPreviewProps {
   mergedData: ExcelData | null;
   sheetName: string | null;
   diffs: DiffRecord[];
+  hideIdenticalRows?: Set<number>;
+  hideIdenticalCols?: Set<number>;
 }
 
-export function MergedPreview({ mergedData, sheetName, diffs }: MergedPreviewProps) {
+export function MergedPreview({ mergedData, sheetName, diffs, hideIdenticalRows, hideIdenticalCols }: MergedPreviewProps) {
   if (!mergedData) {
     return (
       <div className="merged-preview empty">
@@ -31,6 +33,8 @@ export function MergedPreview({ mergedData, sheetName, diffs }: MergedPreviewPro
           data={mergedData}
           sheetName={sheetName}
           diffs={[]}
+          hideIdenticalRows={hideIdenticalRows}
+          hideIdenticalCols={hideIdenticalCols}
         />
       </div>
     </div>

@@ -9,9 +9,20 @@ interface ExcelViewerProps {
   onCellClick?: (row: number, col: number, fileSource?: 'fileA' | 'fileB') => void;
   scrollSyncRef?: React.RefObject<HTMLDivElement>;
   fileSource?: 'fileA' | 'fileB'; // 标识这是文件A还是文件B
+  hideIdenticalRows?: Set<number>; // 要隐藏的相同行
+  hideIdenticalCols?: Set<number>; // 要隐藏的相同列
 }
 
-export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef, fileSource }: ExcelViewerProps) {
+export function ExcelViewer({ 
+  data, 
+  sheetName, 
+  diffs, 
+  onCellClick, 
+  scrollSyncRef, 
+  fileSource,
+  hideIdenticalRows = new Set(),
+  hideIdenticalCols = new Set()
+}: ExcelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,6 +88,12 @@ export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef
     return classes.join(' ');
   };
 
+  // 过滤要显示的行和列
+  const visibleRows = Array.from({ length: sheet.rowCount }, (_, i) => i)
+    .filter(row => !hideIdenticalRows.has(row));
+  const visibleCols = Array.from({ length: sheet.colCount }, (_, i) => i)
+    .filter(col => !hideIdenticalCols.has(col));
+
   return (
     <div className="excel-viewer" ref={containerRef}>
       <div className="excel-table-wrapper">
@@ -84,19 +101,19 @@ export function ExcelViewer({ data, sheetName, diffs, onCellClick, scrollSyncRef
           <thead>
             <tr>
               <th className="row-header"></th>
-              {Array.from({ length: sheet.colCount }, (_, i) => (
-                <th key={i} className="col-header">
-                  {String.fromCharCode(65 + (i % 26))}
-                  {i >= 26 ? Math.floor(i / 26) : ''}
+              {visibleCols.map((col) => (
+                <th key={col} className="col-header">
+                  {String.fromCharCode(65 + (col % 26))}
+                  {col >= 26 ? Math.floor(col / 26) : ''}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: sheet.rowCount }, (_, row) => (
+            {visibleRows.map((row) => (
               <tr key={row}>
                 <td className="row-header">{row + 1}</td>
-                {Array.from({ length: sheet.colCount }, (_, col) => {
+                {visibleCols.map((col) => {
                   const cell = sheet.data[row]?.[col];
                   const value = cell?.value ?? '';
                   const diff = diffMap.get(`${row}-${col}`);

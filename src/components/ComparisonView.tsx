@@ -6,6 +6,7 @@ import { ResolutionSettings } from './ResolutionSettings';
 import { ExportButton } from './ExportButton';
 import { MergedPreview } from './MergedPreview';
 import { generateMergedData } from '../utils/mergedDataGenerator';
+import { analyzeIdenticalRowsAndCols } from '../utils/diffFilter';
 import './ComparisonView.css';
 
 interface ComparisonViewProps {
@@ -30,6 +31,7 @@ export function ComparisonView({
   unresolvedCount
 }: ComparisonViewProps) {
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
+  const [hideIdenticalContent, setHideIdenticalContent] = useState<boolean>(true);
   const scrollSyncRef = useRef<HTMLDivElement>(null);
 
   // 自动选择第一个工作表
@@ -47,6 +49,14 @@ export function ComparisonView({
     const defaultStrategyForPreview = defaultStrategy === 'fileA' || defaultStrategy === 'oldValue' ? 'fileA' : 'fileB';
     return generateMergedData(fileA, fileB, diffs, defaultStrategyForPreview);
   }, [fileA, fileB, diffs, defaultStrategy]);
+
+  // 分析相同行和列
+  const { identicalRows, identicalCols } = useMemo(() => {
+    if (!fileA || !fileB || !selectedSheet) {
+      return { identicalRows: new Set<number>(), identicalCols: new Set<number>() };
+    }
+    return analyzeIdenticalRowsAndCols(fileA, fileB, diffs, selectedSheet);
+  }, [fileA, fileB, diffs, selectedSheet]);
 
   const handleCellClick = (row: number, col: number, fileSource?: 'fileA' | 'fileB') => {
     const diff = diffs.find(
@@ -82,12 +92,29 @@ export function ComparisonView({
         unresolvedCount={unresolvedCount}
       />
 
-      <SheetSelector
-        fileA={fileA}
-        fileB={fileB}
-        selectedSheet={selectedSheet}
-        onSelectSheet={setSelectedSheet}
-      />
+      <div className="view-controls">
+        <SheetSelector
+          fileA={fileA}
+          fileB={fileB}
+          selectedSheet={selectedSheet}
+          onSelectSheet={setSelectedSheet}
+        />
+        <div className="filter-control">
+          <label className="filter-toggle">
+            <input
+              type="checkbox"
+              checked={hideIdenticalContent}
+              onChange={(e) => setHideIdenticalContent(e.target.checked)}
+            />
+            <span>隐藏相同内容（只显示差异）</span>
+          </label>
+          {hideIdenticalContent && (
+            <span className="filter-info">
+              （已隐藏 {identicalRows.size} 行，{identicalCols.size} 列）
+            </span>
+          )}
+        </div>
+      </div>
       <div className="side-by-side-container">
         <div className="excel-viewer-wrapper" ref={scrollSyncRef}>
           <div className="viewer-label">文件A（点击差异单元格采用此文件的值）</div>
@@ -98,6 +125,8 @@ export function ComparisonView({
             onCellClick={handleCellClick}
             scrollSyncRef={scrollSyncRef}
             fileSource="fileA"
+            hideIdenticalRows={hideIdenticalContent ? identicalRows : new Set()}
+            hideIdenticalCols={hideIdenticalContent ? identicalCols : new Set()}
           />
         </div>
         <div className="excel-viewer-wrapper">
@@ -109,6 +138,8 @@ export function ComparisonView({
             onCellClick={handleCellClick}
             scrollSyncRef={scrollSyncRef}
             fileSource="fileB"
+            hideIdenticalRows={hideIdenticalContent ? identicalRows : new Set()}
+            hideIdenticalCols={hideIdenticalContent ? identicalCols : new Set()}
           />
         </div>
       </div>
@@ -116,6 +147,8 @@ export function ComparisonView({
         mergedData={mergedData}
         sheetName={selectedSheet}
         diffs={diffs}
+        hideIdenticalRows={hideIdenticalContent ? identicalRows : new Set()}
+        hideIdenticalCols={hideIdenticalContent ? identicalCols : new Set()}
       />
     </div>
   );
